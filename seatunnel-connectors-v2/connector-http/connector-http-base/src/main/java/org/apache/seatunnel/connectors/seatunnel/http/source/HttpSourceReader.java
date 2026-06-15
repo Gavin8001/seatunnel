@@ -180,10 +180,21 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                         .getParams()
                         .put(pageInfo.getPageField(), pageInfo.getPageIndex().toString());
             }
+            // offset
+            if (pageInfo.getPageOffsetFieldName() != null && pageInfo.getPageOffset() != null) {
+                this.httpParameter
+                        .getParams()
+                        .put(
+                                pageInfo.getPageOffsetFieldName(),
+                                pageInfo.getPageOffset().toString());
+            }
             return;
         }
         Long pageValue = pageInfo.getPageIndex();
         String pageField = pageInfo.getPageField();
+
+        Integer pageOffset = pageInfo.getPageOffset();
+        String pageOffsetFieldName = pageInfo.getPageOffsetFieldName();
 
         // Process headers
         if (MapUtils.isNotEmpty(this.httpParameter.getHeaders())) {
@@ -197,6 +208,12 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     this.httpParameter.getHeaders(),
                     pageInfo.getPageCursorFieldName(),
                     pageInfo.getCursor(),
+                    usePlaceholderReplacement);
+
+            processPageMap(
+                    this.httpParameter.getHeaders(),
+                    pageOffsetFieldName,
+                    pageOffset.toString(),
                     usePlaceholderReplacement);
         }
         // if not set keepPageParamAsHttpParam, but page field is in params, then set page index as
@@ -212,6 +229,11 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     pageInfo.getPageCursorFieldName(),
                     pageInfo.getCursor(),
                     usePlaceholderReplacement);
+            processPageMap(
+                    this.httpParameter.getParams(),
+                    pageOffsetFieldName,
+                    pageOffset.toString(),
+                    usePlaceholderReplacement);
         }
 
         // 2. param in body
@@ -226,6 +248,16 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                                 processedBody,
                                 pageInfo.getPageCursorFieldName(),
                                 pageInfo.getCursor(),
+                                usePlaceholderReplacement);
+            }
+
+            // Process offset if available
+            if (pageOffsetFieldName != null && pageOffset != null) {
+                processedBody =
+                        processBodyString(
+                                processedBody,
+                                pageOffsetFieldName,
+                                pageOffset,
                                 usePlaceholderReplacement);
             }
 
@@ -349,6 +381,13 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                         pollAndCollectData(output);
                         Thread.sleep(10);
                     }
+                } else if (HttpPaginationType.OFFSET.getCode().equals(info.getPageType())) {
+                    while (!noMoreElementFlag) {
+                        updateRequestParam(info, info.isUsePlaceholderReplacement());
+                        pollAndCollectData(output);
+                        info.setPageOffset(info.getPageOffset() + info.getBatchSize());
+                        Thread.sleep(10);
+                    }
                 } else {
                     // default page number pagination
                     Long pageIndex = info.getPageIndex();
@@ -404,6 +443,10 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 pageInfo.setCursor(newCursor);
                 // if not present cursor, then no more data
                 noMoreElementFlag = Strings.isNullOrEmpty(newCursor);
+
+            } else if (HttpPaginationType.OFFSET.getCode().equals(pageInfo.getPageType())) {
+                int readSize = JsonUtils.stringToJsonNode(contentData).size();
+                noMoreElementFlag = readSize < pageInfo.getBatchSize();
             } else {
                 // if not set page pagination is default
                 // Determine whether the task is completed by specifying the presence of the 'total

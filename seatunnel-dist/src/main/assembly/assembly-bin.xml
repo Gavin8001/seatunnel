@@ -210,6 +210,15 @@
                 <include>org.apache.seatunnel:connector-fake:jar</include>
                 <include>org.apache.seatunnel:connector-console:jar</include>
                 <include>org.apache.seatunnel:connector-cdc-base:jar</include>
+                <include>org.apache.seatunnel:connector-cdc-mysql:jar</include>
+                <include>org.apache.seatunnel:connector-cdc-mongodb:jar</include>
+                <include>org.apache.seatunnel:connector-cdc-postgres:jar</include>
+                <include>org.apache.seatunnel:connector-cdc-sqlserver:jar</include>
+                <include>org.apache.seatunnel:connector-jdbc:jar</include>
+                <include>org.apache.seatunnel:connector-maxcompute:jar</include>
+                <include>org.apache.seatunnel:connector-file-ftp:jar</include>
+                <include>org.apache.seatunnel:connector-file-sftp:jar</include>
+                <include>org.apache.seatunnel:connector-http-base:jar</include>
             </includes>
             <outputDirectory>/connectors</outputDirectory>
             <scope>provided</scope>

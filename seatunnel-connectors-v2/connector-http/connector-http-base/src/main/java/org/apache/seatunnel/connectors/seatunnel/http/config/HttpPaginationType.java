@@ -24,7 +24,13 @@ public enum HttpPaginationType {
     /** Cursor based pagination */
     CURSOR(
             "Cursor",
-            "token-based cursor pagination,uses a cursor/token to fetch the next set of data based on a specific point or marker");
+            "token-based cursor pagination,uses a cursor/token to fetch the next set of data based on a specific point or marker"),
+
+    /** Offset based pagination */
+    OFFSET(
+            "Offset",
+            "token-based offset pagination,uses a offset and batch size to retrieve a specific slice of data"),
+    ;
 
     private final String code;
     private final String description;

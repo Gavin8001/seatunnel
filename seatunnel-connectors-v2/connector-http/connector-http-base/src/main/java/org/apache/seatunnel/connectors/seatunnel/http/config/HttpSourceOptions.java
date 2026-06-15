@@ -70,6 +70,16 @@ public class HttpSourceOptions extends HttpCommonOptions {
                     .withDescription(
                             "If true, use placeholder replacement (${field}) for headers, parameters and body values, otherwise use key-based replacement.");
 
+    public static final Option<Integer> PAGE_OFFSET =
+            Options.key("offset").intType().defaultValue(1).withDescription("Offset分页模式，起始值，默认为1");
+
+    public static final Option<String> PAGE_OFFSET_FIELD_NAME =
+            Options.key("offset_field")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "this parameter is used to specify the Offset field name in the request parameter");
+
     public static final Option<Map<String, String>> PAGEING =
             Options.key("pageing").mapType().noDefaultValue().withDescription("pageing");
 

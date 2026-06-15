@@ -36,5 +36,7 @@ public class PageInfo implements Serializable {
     private String cursor;
     private String pageCursorFieldName;
     private String pageCursorResponseField;
+    private Integer pageOffset;
+    private String pageOffsetFieldName;
     private boolean usePlaceholderReplacement = false;
 }

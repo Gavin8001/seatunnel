@@ -124,6 +124,15 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                 pageInfo.setUsePlaceholderReplacement(
                         HttpSourceOptions.USE_PLACEHOLDER_REPLACEMENT.defaultValue());
             }
+            if (pageConfig.hasPath(HttpSourceOptions.PAGE_OFFSET.key())) {
+                pageInfo.setPageOffset(pageConfig.getInt(HttpSourceOptions.PAGE_OFFSET.key()));
+            } else {
+                pageInfo.setPageOffset(HttpSourceOptions.PAGE_OFFSET.defaultValue());
+            }
+            if (pageConfig.hasPath(HttpSourceOptions.PAGE_OFFSET_FIELD_NAME.key())) {
+                pageInfo.setPageOffsetFieldName(
+                        pageConfig.getString(HttpSourceOptions.PAGE_OFFSET_FIELD_NAME.key()));
+            }
         }
     }
 
