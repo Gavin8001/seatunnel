@@ -58,3 +58,11 @@ node/
 dist/
 
 seatunnel-engine/seatunnel-engine-server/**/ui/*
+
+#AI开发配置
+docs/superpowers/*
+CLAUDE.md
+
+TP/*
+
+
