@@ -60,6 +60,7 @@ dist/
 seatunnel-engine/seatunnel-engine-server/**/ui/*
 
 #AI开发配置
+.claude/*
 docs/superpowers/*
 CLAUDE.md
 openspec/*
