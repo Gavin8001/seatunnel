@@ -62,7 +62,8 @@ seatunnel-engine/seatunnel-engine-server/**/ui/*
 #AI开发配置
 docs/superpowers/*
 CLAUDE.md
-
+openspec/*
 TP/*
+deploy/docker/*
 
 
