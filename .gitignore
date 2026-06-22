@@ -68,3 +68,4 @@ TP/*
 deploy/docker/*
 
 
+.worktrees/
