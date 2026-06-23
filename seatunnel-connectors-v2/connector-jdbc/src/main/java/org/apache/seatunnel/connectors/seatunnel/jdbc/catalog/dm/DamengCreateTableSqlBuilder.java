@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTy
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -39,6 +40,7 @@ public class DamengCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
     private final PrimaryKey primaryKey;
     private final String sourceCatalogName;
     private final String fieldIde;
+    private final String tableComment;
     private final List<ConstraintKey> constraintKeys;
     private boolean createIndex;
 
@@ -47,11 +49,15 @@ public class DamengCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.sourceCatalogName = catalogTable.getCatalogName();
         this.fieldIde = catalogTable.getOptions().get("fieldIde");
+        this.tableComment = catalogTable.getComment();
         constraintKeys = catalogTable.getTableSchema().getConstraintKeys();
         this.createIndex = createIndex;
     }
 
-    public String build(TablePath tablePath) {
+    public List<String> build(TablePath tablePath) {
+        List<String> sqls = new ArrayList<>();
+
+        //        建表语句
         StringBuilder createTableSql = new StringBuilder();
         createTableSql
                 .append("CREATE TABLE ")
@@ -90,6 +96,19 @@ public class DamengCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
         createTableSql.append(String.join(",\n", columnSqls));
         createTableSql.append("\n)");
 
+        sqls.add(createTableSql.toString());
+
+        //        表注释
+        if (StringUtils.isNotBlank(tableComment)) {
+            sqls.add(
+                    "COMMENT ON TABLE "
+                            + tablePath.getSchemaAndTableName("\"")
+                            + " IS '"
+                            + tableComment
+                            + "'");
+        }
+
+        //        字段注释
         List<String> commentSqls =
                 columns.stream()
                         .filter(column -> StringUtils.isNotBlank(column.getComment()))
@@ -100,12 +119,10 @@ public class DamengCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
                         .collect(Collectors.toList());
 
         if (!commentSqls.isEmpty()) {
-            createTableSql.append(";\n");
-            createTableSql.append(String.join(";\n", commentSqls));
-            createTableSql.append(";");
+            sqls.addAll(commentSqls);
         }
 
-        return createTableSql.toString();
+        return sqls;
     }
 
     String buildColumnSql(Column column) {
