@@ -309,6 +309,11 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/e2e_null_format/e2e_null_format.txt",
                         container);
 
+                ContainerUtil.copyFileIntoContainers(
+                        "/dbf/e2e.dbf",
+                        "/seatunnel/read/dbf/name=tyrantlucifer/hobby=coding/e2e.dbf",
+                        container);
+
                 container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
             };
 
@@ -410,6 +415,15 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/excel/local_excel_multi_zip_to_assert.conf");
         helper.execute("/excel/local_excel_xls_gz_to_assert.conf");
         helper.execute("/excel/local_excel_xlsx_gz_to_assert.conf");
+
+        // test write local dbf file
+        helper.execute("/dbf/fake_to_local_dbf.conf");
+        // test read local dbf file
+        helper.execute("/dbf/local_dbf_to_assert.conf");
+        // test write local dbf file with GBK encoding
+        helper.execute("/dbf/fake_to_local_dbf_gbk.conf");
+        // test read local dbf file with GBK encoding
+        helper.execute("/dbf/local_dbf_gbk_to_assert.conf");
     }
 
     @TestTemplate
