@@ -51,6 +51,7 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<OutputStream> {
     private Charset charset = StandardCharsets.UTF_8;
     private String stringLengthStrategy = FileBaseSinkOptions.DBF_STRING_LENGTH_STRATEGY_ERROR;
     private DBFWriter dbfWriter;
+    private OutputStream outputStream;
 
     public DbfWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
@@ -123,23 +124,28 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<OutputStream> {
             strValue = String.valueOf(field);
         }
 
-        // 检查字符串长度
-        if (strValue.length() > MAX_DBF_STRING_LENGTH) {
+        // 检查字符串长度 (按字节计算，DBF CHAR 字段最多 254 字节)
+        int byteLength = strValue.getBytes(charset).length;
+        if (byteLength > MAX_DBF_STRING_LENGTH) {
             if (FileBaseSinkOptions.DBF_STRING_LENGTH_STRATEGY_TRUNCATE.equals(
                     stringLengthStrategy)) {
                 log.warn(
-                        "String field '{}' value length {} exceeds DBF max length {}, truncating",
+                        "String field '{}' value byte length {} exceeds DBF max length {}, truncating",
                         fieldName,
-                        strValue.length(),
+                        byteLength,
                         MAX_DBF_STRING_LENGTH);
-                strValue = strValue.substring(0, MAX_DBF_STRING_LENGTH);
+                // 按字节截断
+                byte[] bytes = strValue.getBytes(charset);
+                byte[] truncated = new byte[MAX_DBF_STRING_LENGTH];
+                System.arraycopy(bytes, 0, truncated, 0, MAX_DBF_STRING_LENGTH);
+                strValue = new String(truncated, charset);
             } else {
                 throw new FileConnectorException(
                         FileConnectorErrorCode.WRITER_WRITE_ERROR,
                         String.format(
-                                "String field '%s' value length %d exceeds DBF max length %d. "
+                                "String field '%s' value byte length %d exceeds DBF max length %d. "
                                         + "Set 'dbf_string_length_strategy' to 'TRUNCATE' to allow truncation.",
-                                fieldName, strValue.length(), MAX_DBF_STRING_LENGTH));
+                                fieldName, byteLength, MAX_DBF_STRING_LENGTH));
             }
         }
         return strValue;
@@ -151,19 +157,14 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<OutputStream> {
     }
 
     @Override
-    public void setCatalogTable(CatalogTable catalogTable) {
-        super.setCatalogTable(catalogTable);
-    }
-
-    @Override
     public OutputStream getOrCreateOutputStream(String path) throws IOException {
         if (dbfWriter == null) {
-            OutputStream out = hadoopFileSystemProxy.getOutputStream(path);
+            outputStream = hadoopFileSystemProxy.getOutputStream(path);
             // 构建 DBF 字段定义
             String[] fieldNames = catalogTable.getSeaTunnelRowType().getFieldNames();
             SeaTunnelDataType<?>[] fieldTypes = catalogTable.getSeaTunnelRowType().getFieldTypes();
 
-            dbfWriter = new DBFWriter(out);
+            dbfWriter = new DBFWriter(outputStream);
 
             for (int i = 0; i < fieldNames.length; i++) {
                 String name = fieldNames[i];
@@ -199,9 +200,9 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<OutputStream> {
 
     private int getDbfFieldLength(SeaTunnelDataType<?> fieldType) {
         if (fieldType == BasicType.INT_TYPE) {
-            return 9;
+            return 10; // 9 digits + 1 for sign
         } else if (fieldType == BasicType.LONG_TYPE) {
-            return 18;
+            return 20; // 18 digits + 1 for sign + 1 for safety margin
         } else if (fieldType == BasicType.DOUBLE_TYPE
                 || fieldType == BasicType.FLOAT_TYPE
                 || fieldType instanceof DecimalType) {
@@ -224,6 +225,17 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<OutputStream> {
                         e);
             }
             dbfWriter = null;
+        }
+        if (outputStream != null) {
+            try {
+                outputStream.close();
+            } catch (IOException e) {
+                throw new FileConnectorException(
+                        FileConnectorErrorCode.FILE_OPERATION_FAILED,
+                        "Failed to close output stream",
+                        e);
+            }
+            outputStream = null;
         }
     }
 }
