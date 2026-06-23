@@ -329,4 +329,15 @@ public class FileBaseSinkOptions extends FileBaseOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("When using kerberos, We should specify the keytab path");
+
+    public static final String DBF_STRING_LENGTH_STRATEGY_ERROR = "ERROR";
+    public static final String DBF_STRING_LENGTH_STRATEGY_TRUNCATE = "TRUNCATE";
+
+    public static final Option<String> DBF_STRING_LENGTH_STRATEGY =
+            Options.key("dbf_string_length_strategy")
+                    .stringType()
+                    .defaultValue(DBF_STRING_LENGTH_STRATEGY_ERROR)
+                    .withDescription(
+                            "Strategy for handling string fields that exceed DBF field length (max 254 bytes). "
+                                    + "Values: ERROR (throw exception, default), TRUNCATE (truncate and log warning)");
 }
