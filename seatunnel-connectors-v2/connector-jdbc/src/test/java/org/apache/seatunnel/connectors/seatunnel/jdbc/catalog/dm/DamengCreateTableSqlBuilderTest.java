@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -96,8 +97,10 @@ public class DamengCreateTableSqlBuilderTest {
                         new ArrayList<>(),
                         "User table");
 
-        String createTableSql =
+        List<String> createTableSqls =
                 new DamengCreateTableSqlBuilder(catalogTable, true).build(tablePath);
+
+        String createTableSql = String.join(";\n", createTableSqls) + ";";
         String expect =
                 "CREATE TABLE \"test_schema\".\"test_table\" (\n"
                         + "\"id\" BIGINT NOT NULL,\n"
@@ -121,8 +124,10 @@ public class DamengCreateTableSqlBuilderTest {
         Assertions.assertEquals(replacedStr2, replacedStr1);
 
         // skip index
-        String createTableSqlSkipIndex =
+        List<String> tempSqls =
                 new DamengCreateTableSqlBuilder(catalogTable, false).build(tablePath);
+        String createTableSqlSkipIndex = String.join(";\n", tempSqls) + ";";
+
         // create table sql is change; The old unit tests are no longer applicable
         String expectSkipIndex =
                 "CREATE TABLE \"test_schema\".\"test_table\" (\n"

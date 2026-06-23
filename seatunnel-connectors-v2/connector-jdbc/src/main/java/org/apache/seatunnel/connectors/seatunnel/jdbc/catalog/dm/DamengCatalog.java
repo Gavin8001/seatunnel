@@ -108,6 +108,11 @@ public class DamengCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getCreateTableSql(
             TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return getCreateTableSqls(tablePath, table, createIndex).get(0);
+    }
+
+    protected List<String> getCreateTableSqls(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
         return new DamengCreateTableSqlBuilder(table, createIndex).build(tablePath);
     }
 
