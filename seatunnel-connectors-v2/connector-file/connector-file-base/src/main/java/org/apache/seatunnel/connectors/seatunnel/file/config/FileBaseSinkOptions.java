@@ -45,6 +45,8 @@ public class FileBaseSinkOptions extends FileBaseOptions {
     public static final String DEFAULT_TMP_PATH = "/tmp/seatunnel";
     public static final String DEFAULT_FILE_NAME_EXPRESSION = "${transactionId}";
     public static final int DEFAULT_BATCH_SIZE = 1000000;
+    public static final String DBF_STRING_LENGTH_STRATEGY_ERROR = "ERROR";
+    public static final String DBF_STRING_LENGTH_STRATEGY_TRUNCATE = "TRUNCATE";
 
     public static final Option<CompressFormat> COMPRESS_CODEC =
             Options.key("compress_codec")
@@ -329,9 +331,6 @@ public class FileBaseSinkOptions extends FileBaseOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("When using kerberos, We should specify the keytab path");
-
-    public static final String DBF_STRING_LENGTH_STRATEGY_ERROR = "ERROR";
-    public static final String DBF_STRING_LENGTH_STRATEGY_TRUNCATE = "TRUNCATE";
 
     public static final Option<String> DBF_STRING_LENGTH_STRATEGY =
             Options.key("dbf_string_length_strategy")

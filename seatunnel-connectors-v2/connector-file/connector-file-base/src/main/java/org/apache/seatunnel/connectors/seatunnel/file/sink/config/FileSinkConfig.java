@@ -90,6 +90,9 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
     private CsvStringQuoteMode csvStringQuoteMode =
             FileBaseSinkOptions.CSV_STRING_QUOTE_MODE.defaultValue();
 
+    private String dbfStringLengthStrategy =
+            FileBaseSinkOptions.DBF_STRING_LENGTH_STRATEGY.defaultValue();
+
     public FileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
         super(config);
         checkArgument(
@@ -247,6 +250,13 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
                 this.csvStringQuoteMode =
                         CsvStringQuoteMode.valueOf(
                                 config.getString(FileBaseSinkOptions.CSV_STRING_QUOTE_MODE.key()));
+            }
+        }
+
+        if (FileFormat.DBF.equals(this.fileFormat)) {
+            if (config.hasPath(FileBaseSinkOptions.DBF_STRING_LENGTH_STRATEGY.key())) {
+                this.dbfStringLengthStrategy =
+                        config.getString(FileBaseSinkOptions.DBF_STRING_LENGTH_STRATEGY.key());
             }
         }
     }

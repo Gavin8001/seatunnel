@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -37,23 +39,35 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 
 @Slf4j
 public class DbfReadStrategy extends AbstractReadStrategy {
 
-    private static final DateTimeFormatter DBF_DATE_FORMAT =
-            DateTimeFormatter.ofPattern("yyyyMMdd");
-    private Charset charset = StandardCharsets.UTF_8;
+    private DateUtils.Formatter dateFormatter =
+            FileBaseSourceOptions.DATE_FORMAT_LEGACY.defaultValue();
+
+    private DateTimeUtils.Formatter dateTimeFormatter =
+            FileBaseSourceOptions.DATETIME_FORMAT_LEGACY.defaultValue();
+
+    private String encoding = FileBaseSourceOptions.ENCODING.defaultValue();
 
     @Override
     public void init(org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf conf) {
         super.init(conf);
         if (pluginConfig.hasPath(FileBaseSourceOptions.ENCODING.key())) {
-            String encoding = pluginConfig.getString(FileBaseSourceOptions.ENCODING.key());
-            charset = Charset.forName(encoding);
+            encoding = pluginConfig.getString(FileBaseSourceOptions.ENCODING.key());
+        }
+        if (pluginConfig.hasPath(FileBaseSourceOptions.DATE_FORMAT_LEGACY.key())) {
+            dateFormatter =
+                    pluginConfig.getEnum(
+                            DateUtils.Formatter.class,
+                            FileBaseSourceOptions.DATE_FORMAT_LEGACY.key());
+        }
+        if (pluginConfig.hasPath(FileBaseSourceOptions.DATETIME_FORMAT_LEGACY.key())) {
+            dateTimeFormatter =
+                    pluginConfig.getEnum(
+                            DateTimeUtils.Formatter.class,
+                            FileBaseSourceOptions.DATETIME_FORMAT_LEGACY.key());
         }
     }
 
@@ -61,7 +75,7 @@ public class DbfReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
         try (InputStream inputStream = hadoopFileSystemProxy.getInputStream(path)) {
-            DBFReader reader = new DBFReader(inputStream, charset);
+            DBFReader reader = new DBFReader(inputStream, Charset.forName(encoding));
             SeaTunnelRowType rowType = getSeaTunnelRowType();
             int fieldCount = rowType.getTotalFields();
 
@@ -105,7 +119,9 @@ public class DbfReadStrategy extends AbstractReadStrategy {
             String v = strValue.toUpperCase();
             return v.equals("Y") || v.equals("T") || v.equals("1");
         } else if (fieldType == LocalTimeType.LOCAL_DATE_TYPE) {
-            return LocalDate.parse(strValue, DBF_DATE_FORMAT);
+            return DateUtils.parse(strValue, dateFormatter);
+        } else if (fieldType == LocalTimeType.LOCAL_DATE_TIME_TYPE) {
+            return DateTimeUtils.parse(strValue, dateTimeFormatter);
         } else if (fieldType instanceof DecimalType) {
             return new BigDecimal(strValue);
         }
