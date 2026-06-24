@@ -65,13 +65,13 @@ public class DbfFileIT extends TestSuiteBase {
         // test read local dbf file
         helper.execute("/dbf/local_dbf_to_assert.conf");
 
-//        helper.execute("/dbf/local_dbf_to_console.conf");
+        //        helper.execute("/dbf/local_dbf_to_console.conf");
 
         // test write local dbf file with GBK encoding
         helper.execute("/dbf/fake_to_local_dbf_gbk.conf");
         // test read local dbf file with GBK encoding
         helper.execute("/dbf/local_dbf_gbk_to_assert.conf");
 
-//        helper.execute("/dbf/local_dbf_gbk_to_console.conf");
+        //        helper.execute("/dbf/local_dbf_gbk_to_console.conf");
     }
 }
