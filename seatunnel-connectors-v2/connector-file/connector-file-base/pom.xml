@@ -41,6 +41,7 @@
         <jaxen.version>2.0.0</jaxen.version>
         <easyexcel.version>4.0.3</easyexcel.version>
         <fastexcel-reader.version>0.18.4</fastexcel-reader.version>
+        <artifactId.version>1.13.2</artifactId.version>
     </properties>
 
     <dependencyManagement>
@@ -182,7 +183,7 @@
         <dependency>
             <groupId>com.github.albfernandez</groupId>
             <artifactId>javadbf</artifactId>
-            <version>1.13.2</version>
+            <version>${artifactId.version}</version>
         </dependency>
 
     </dependencies>
