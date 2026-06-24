@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -52,6 +53,7 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<OutputStream> {
     private String stringLengthStrategy = FileBaseSinkOptions.DBF_STRING_LENGTH_STRATEGY_ERROR;
     private DBFWriter dbfWriter;
     private OutputStream outputStream;
+    private DateTimeFormatter configuredDateFormatter;
 
     public DbfWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
@@ -64,15 +66,16 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<OutputStream> {
             String uuidPrefix,
             int subTaskIndex) {
         super.init(conf, jobId, uuidPrefix, subTaskIndex);
-        // 读取 encoding 配置
-        if (pluginConfig.hasPath(FileBaseSinkOptions.ENCODING.key())) {
-            String encoding = pluginConfig.getString(FileBaseSinkOptions.ENCODING.key());
+        String encoding = fileSinkConfig.getEncoding();
+        if (encoding != null) {
             charset = Charset.forName(encoding);
         }
-        // 读取字符串长度策略配置
-        if (pluginConfig.hasPath(FileBaseSinkOptions.DBF_STRING_LENGTH_STRATEGY.key())) {
-            stringLengthStrategy =
-                    pluginConfig.getString(FileBaseSinkOptions.DBF_STRING_LENGTH_STRATEGY.key());
+        // Get configured date format from sink config
+        DateUtils.Formatter configuredDateFormat = fileSinkConfig.getDateFormat();
+        if (configuredDateFormat != null) {
+            configuredDateFormatter = DateTimeFormatter.ofPattern(configuredDateFormat.getValue());
+        } else {
+            configuredDateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd");
         }
     }
 
@@ -80,13 +83,13 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<OutputStream> {
     public void write(SeaTunnelRow seaTunnelRow) throws FileConnectorException {
         if (dbfWriter == null) {
             throw new FileConnectorException(
-                    FileConnectorErrorCode.WRITER_WRITE_ERROR,
+                    FileConnectorErrorCode.FILE_READ_FAILED,
                     "DbfWriter not initialized. Please call setCatalogTable first.");
         }
         try {
             Object[] record = new Object[seaTunnelRow.getArity()];
-            CatalogTable catalogTable = getFileSinkConfig().getCatalogTable();
-            SeaTunnelDataType<?>[] fieldTypes = catalogTable.getSeaTunnelRowType().getFieldTypes();
+            SeaTunnelRowType rowType = seaTunnelRowType;
+            SeaTunnelDataType<?>[] fieldTypes = rowType.getFieldTypes();
 
             for (int i = 0; i < seaTunnelRow.getArity(); i++) {
                 Object field = seaTunnelRow.getField(i);
@@ -96,23 +99,68 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<OutputStream> {
                 }
 
                 SeaTunnelDataType<?> fieldType = fieldTypes[i];
-                String stringValue =
-                        convertToString(
-                                field,
-                                fieldType,
-                                catalogTable.getSeaTunnelRowType().getFieldName(i));
-                record[i] = stringValue;
+                record[i] = convertToDbfValue(field, fieldType, rowType.getFieldName(i));
             }
             dbfWriter.addRecord(record);
         } catch (FileConnectorException e) {
             throw e;
         } catch (Exception e) {
             throw new FileConnectorException(
-                    FileConnectorErrorCode.WRITER_WRITE_ERROR, "Failed to write DBF record", e);
+                    FileConnectorErrorCode.FILE_READ_FAILED, "Failed to write DBF record", e);
         }
     }
 
-    private String convertToString(Object field, SeaTunnelDataType<?> fieldType, String fieldName) {
+    private Object convertToDbfValue(
+            Object field, SeaTunnelDataType<?> fieldType, String fieldName) {
+        // For NUMERIC types, keep as actual numbers
+        if (fieldType == BasicType.INT_TYPE) {
+            if (field instanceof Number) {
+                return ((Number) field).intValue();
+            }
+            return Integer.parseInt(field.toString());
+        } else if (fieldType == BasicType.LONG_TYPE) {
+            if (field instanceof Number) {
+                return ((Number) field).longValue();
+            }
+            return Long.parseLong(field.toString());
+        } else if (fieldType == BasicType.DOUBLE_TYPE || fieldType == BasicType.FLOAT_TYPE) {
+            if (field instanceof Number) {
+                return ((Number) field).doubleValue();
+            }
+            return Double.parseDouble(field.toString());
+        } else if (fieldType instanceof DecimalType) {
+            if (field instanceof BigDecimal) {
+                return (BigDecimal) field;
+            }
+            return new BigDecimal(field.toString());
+        } else if (fieldType == BasicType.BOOLEAN_TYPE) {
+            // JavaDBF LOGICAL type expects Boolean
+            if (field instanceof Boolean) {
+                return (Boolean) field;
+            }
+            String strVal = field.toString().toUpperCase();
+            return strVal.equals("TRUE")
+                    || strVal.equals("T")
+                    || strVal.equals("Y")
+                    || strVal.equals("1");
+        } else if (fieldType == LocalTimeType.LOCAL_DATE_TYPE) {
+            // JavaDBF DATE type expects java.util.Date
+            // Use configured date formatter to parse the input date string
+            if (field instanceof LocalDate) {
+                return java.sql.Date.valueOf((LocalDate) field);
+            }
+            // Parse using configured formatter, then convert to LocalDate for DBF storage
+            LocalDate parsedDate = LocalDate.parse(field.toString(), configuredDateFormatter);
+            return java.sql.Date.valueOf(parsedDate);
+        } else if (fieldType == LocalTimeType.LOCAL_DATE_TIME_TYPE) {
+            // JavaDBF doesn't support datetime natively, store as timestamp string
+            if (field instanceof java.time.LocalDateTime) {
+                return ((java.time.LocalDateTime) field).format(DBF_DATE_FORMAT);
+            }
+            return field.toString();
+        }
+
+        // For STRING and other types, convert to String
         String strValue;
         if (field instanceof String) {
             strValue = (String) field;
@@ -124,7 +172,6 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<OutputStream> {
             strValue = String.valueOf(field);
         }
 
-        // 检查字符串长度 (按字节计算，DBF CHAR 字段最多 254 字节)
         int byteLength = strValue.getBytes(charset).length;
         if (byteLength > MAX_DBF_STRING_LENGTH) {
             if (FileBaseSinkOptions.DBF_STRING_LENGTH_STRATEGY_TRUNCATE.equals(
@@ -134,14 +181,13 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<OutputStream> {
                         fieldName,
                         byteLength,
                         MAX_DBF_STRING_LENGTH);
-                // 按字节截断
                 byte[] bytes = strValue.getBytes(charset);
                 byte[] truncated = new byte[MAX_DBF_STRING_LENGTH];
                 System.arraycopy(bytes, 0, truncated, 0, MAX_DBF_STRING_LENGTH);
                 strValue = new String(truncated, charset);
             } else {
                 throw new FileConnectorException(
-                        FileConnectorErrorCode.WRITER_WRITE_ERROR,
+                        FileConnectorErrorCode.FILE_READ_FAILED,
                         String.format(
                                 "String field '%s' value byte length %d exceeds DBF max length %d. "
                                         + "Set 'dbf_string_length_strategy' to 'TRUNCATE' to allow truncation.",
@@ -152,32 +198,26 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<OutputStream> {
     }
 
     @Override
-    public String generateFileName(String transactionId) {
-        return super.generateFileName(transactionId) + ".dbf";
-    }
-
-    @Override
     public OutputStream getOrCreateOutputStream(String path) throws IOException {
         if (dbfWriter == null) {
             outputStream = hadoopFileSystemProxy.getOutputStream(path);
-            // 构建 DBF 字段定义
-            String[] fieldNames = catalogTable.getSeaTunnelRowType().getFieldNames();
-            SeaTunnelDataType<?>[] fieldTypes = catalogTable.getSeaTunnelRowType().getFieldTypes();
+            SeaTunnelRowType rowType = seaTunnelRowType;
+            String[] fieldNames = rowType.getFieldNames();
+            SeaTunnelDataType<?>[] fieldTypes = rowType.getFieldTypes();
 
-            dbfWriter = new DBFWriter(outputStream);
-
+            DBFField[] fields = new DBFField[fieldNames.length];
             for (int i = 0; i < fieldNames.length; i++) {
-                String name = fieldNames[i];
-                SeaTunnelDataType<?> type = fieldTypes[i];
-                DBFField field = new DBFField();
-                field.setName(name);
-                DBFDataType dbfType = mapToDbfDataType(type);
-                field.setType(dbfType);
-                field.setFieldLength(getDbfFieldLength(type));
-                dbfWriter.addField(field);
+                DBFField dbffield = new DBFField();
+                dbffield.setName(fieldNames[i]);
+                DBFDataType dbfType = mapToDbfDataType(fieldTypes[i]);
+                dbffield.setType(dbfType);
+                dbffield.setFieldLength(getDbfFieldLength(fieldTypes[i]));
+                fields[i] = dbffield;
             }
+            dbfWriter = new DBFWriter(outputStream);
+            dbfWriter.setFields(fields);
         }
-        return null; // DBFWriter handles the actual writing
+        return outputStream;
     }
 
     private DBFDataType mapToDbfDataType(SeaTunnelDataType<?> fieldType) {
@@ -200,15 +240,18 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<OutputStream> {
 
     private int getDbfFieldLength(SeaTunnelDataType<?> fieldType) {
         if (fieldType == BasicType.INT_TYPE) {
-            return 10; // 9 digits + 1 for sign
+            return 10;
         } else if (fieldType == BasicType.LONG_TYPE) {
-            return 20; // 18 digits + 1 for sign + 1 for safety margin
+            return 20;
         } else if (fieldType == BasicType.DOUBLE_TYPE
                 || fieldType == BasicType.FLOAT_TYPE
                 || fieldType instanceof DecimalType) {
             return 20;
         } else if (fieldType == BasicType.BOOLEAN_TYPE) {
             return 1;
+        } else if (fieldType == LocalTimeType.LOCAL_DATE_TYPE
+                || fieldType == LocalTimeType.LOCAL_DATE_TIME_TYPE) {
+            return 8;
         }
         return MAX_DBF_STRING_LENGTH;
     }
@@ -217,10 +260,16 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<OutputStream> {
     public void finishAndCloseFile() {
         if (dbfWriter != null) {
             try {
-                dbfWriter.close();
-            } catch (IOException e) {
+                dbfWriter.write();
+            } catch (Exception e) {
                 throw new FileConnectorException(
-                        FileConnectorErrorCode.FILE_OPERATION_FAILED,
+                        FileConnectorErrorCode.FILE_LIST_GET_FAILED, "Failed to write DBF file", e);
+            }
+            try {
+                dbfWriter.close();
+            } catch (Exception e) {
+                throw new FileConnectorException(
+                        FileConnectorErrorCode.FILE_LIST_GET_FAILED,
                         "Failed to close DBF writer",
                         e);
             }
@@ -229,9 +278,9 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<OutputStream> {
         if (outputStream != null) {
             try {
                 outputStream.close();
-            } catch (IOException e) {
+            } catch (Exception e) {
                 throw new FileConnectorException(
-                        FileConnectorErrorCode.FILE_OPERATION_FAILED,
+                        FileConnectorErrorCode.FILE_LIST_GET_FAILED,
                         "Failed to close output stream",
                         e);
             }

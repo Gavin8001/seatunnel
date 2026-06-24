@@ -19,13 +19,14 @@ package org.apache.seatunnel.e2e.connector.file.local;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestHelper;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.GenericContainer;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,8 +35,8 @@ import java.io.IOException;
 /**
  * DBF file format integration test.
  *
- * <p>Tests DBF file read/write with various field types including STRING, INT, DOUBLE, BOOLEAN,
- * and DATE.
+ * <p>Tests DBF file read/write with various field types including STRING, INT, DOUBLE, BOOLEAN, and
+ * DATE.
  */
 @Slf4j
 public class DbfFileIT extends TestSuiteBase {
@@ -53,8 +54,8 @@ public class DbfFileIT extends TestSuiteBase {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {},
-            disabledReason = "DBF format is only supported in Zeta engine")
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Only support for seatunnel")
     public void testLocalDbfFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);

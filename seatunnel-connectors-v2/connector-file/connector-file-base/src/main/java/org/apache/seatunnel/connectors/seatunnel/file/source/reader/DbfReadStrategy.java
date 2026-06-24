@@ -51,7 +51,6 @@ public class DbfReadStrategy extends AbstractReadStrategy {
     @Override
     public void init(org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf conf) {
         super.init(conf);
-        // 读取 encoding 配置
         if (pluginConfig.hasPath(FileBaseSourceOptions.ENCODING.key())) {
             String encoding = pluginConfig.getString(FileBaseSourceOptions.ENCODING.key());
             charset = Charset.forName(encoding);
@@ -61,8 +60,8 @@ public class DbfReadStrategy extends AbstractReadStrategy {
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
-        try (InputStream inputStream = hadoopFileSystemProxy.getInputStream(path);
-                DBFReader reader = new DBFReader(inputStream)) {
+        try (InputStream inputStream = hadoopFileSystemProxy.getInputStream(path)) {
+            DBFReader reader = new DBFReader(inputStream, charset);
             SeaTunnelRowType rowType = getSeaTunnelRowType();
             int fieldCount = rowType.getTotalFields();
 
@@ -80,15 +79,13 @@ public class DbfReadStrategy extends AbstractReadStrategy {
             throw e;
         } catch (Exception e) {
             throw new FileConnectorException(
-                    FileConnectorErrorCode.READER_READ_ERROR,
-                    "Failed to read DBF file: " + path,
-                    e);
+                    FileConnectorErrorCode.FILE_READ_FAILED, "Failed to read DBF file: " + path, e);
         }
     }
 
     private Object extractFieldValue(
             DBFRow record, int fieldIndex, SeaTunnelDataType<?> fieldType) {
-        Object value = record.getValue(fieldIndex);
+        Object value = record.getObject(fieldIndex);
         if (value == null) {
             return null;
         }
@@ -127,11 +124,9 @@ public class DbfReadStrategy extends AbstractReadStrategy {
     }
 
     private SeaTunnelRowType getSeaTunnelRowType() {
-        // 如果用户通过 CatalogTable 指定了 schema，优先使用用户指定
         if (seaTunnelRowType != null) {
             return seaTunnelRowType;
         }
-        // 否则从 DBF 文件头推断
         throw new UnsupportedOperationException(
                 "Auto-inferring DBF schema from file header is not yet implemented. "
                         + "Please provide CatalogTable schema configuration.");
