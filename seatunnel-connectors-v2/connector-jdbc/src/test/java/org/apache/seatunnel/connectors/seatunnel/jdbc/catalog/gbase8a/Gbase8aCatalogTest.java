@@ -80,7 +80,7 @@ public class Gbase8aCatalogTest {
     public void testGetTableWithConditionSql() {
         String sql = GBASE8A_CATALOG.getTableWithConditionSql(TABLE_PATH);
         // exact match per spec: no TABLE_SCHEMA clause, uppercase WHERE
-        Assertions.assertEquals("SHOW TABLES; WHERE TABLE_NAME = 'test_table'", sql);
+        Assertions.assertEquals("SHOW TABLES WHERE TABLE_NAME = 'test_table'", sql);
     }
 
     @Test
@@ -90,18 +90,18 @@ public class Gbase8aCatalogTest {
 
     @Test
     public void testGetListTableSql() {
-        Assertions.assertEquals("SHOW TABLES;", GBASE8A_CATALOG.getListTableSql("mydb"));
+        Assertions.assertEquals("SHOW TABLES", GBASE8A_CATALOG.getListTableSql("mydb"));
     }
 
     @Test
     public void testGetSelectColumnsSql() {
         String sql = GBASE8A_CATALOG.getSelectColumnsSql(TABLE_PATH);
-        // exact spec: column list + ORDER BY ORDINAL_POSITION ASC + uppercase WHERE/AND
+        // TABLE_SCHEMA placeholder is the schema (second segment), not the database
         Assertions.assertEquals(
                 "SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, "
                         + "IS_NULLABLE, COLUMN_DEFAULT, COLUMN_COMMENT "
                         + "FROM INFORMATION_SCHEMA.COLUMNS "
-                        + "WHERE TABLE_SCHEMA = 'test_db' AND TABLE_NAME = 'test_table' "
+                        + "WHERE TABLE_SCHEMA = 'test_schema' AND TABLE_NAME = 'test_table' "
                         + "ORDER BY ORDINAL_POSITION ASC",
                 sql);
     }
@@ -189,6 +189,13 @@ public class Gbase8aCatalogTest {
         // Gbase8aCatalog overrides to use schema.table format with double-quote separator
         Assertions.assertEquals(
                 "\"test_schema\".\"test_table\"", GBASE8A_CATALOG.getTableName(TABLE_PATH));
+    }
+
+    @Test
+    public void testGetOptionTableName() {
+        // Gbase8aCatalog overrides to return schema.table (not the full db.schema.table)
+        Assertions.assertEquals(
+                "test_schema.test_table", GBASE8A_CATALOG.getOptionTableName(TABLE_PATH));
     }
 
     @Test

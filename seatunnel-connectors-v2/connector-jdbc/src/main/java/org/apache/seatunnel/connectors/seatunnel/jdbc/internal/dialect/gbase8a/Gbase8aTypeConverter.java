@@ -36,7 +36,6 @@ import lombok.extern.slf4j.Slf4j;
 public class Gbase8aTypeConverter implements TypeConverter<BasicTypeDefine> {
     // ref http://www.gbase.cn/down/4419.html
     // ============================data types=====================
-    private static final String GBASE8A_UNKNOWN = "UNKNOWN";
 
     // -------------------------number----------------------------
     public static final String GBASE8A_TINYINT = "TINYINT";

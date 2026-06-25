@@ -29,10 +29,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.gbase8a.G
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -57,12 +55,12 @@ public class Gbase8aCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected void createDatabaseInternal(String databaseName) {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("GBase 8A does not support creating databases");
     }
 
     @Override
     protected void dropDatabaseInternal(String databaseName) {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("GBase 8A does not support dropping databases");
     }
 
     @Override
@@ -92,13 +90,13 @@ public class Gbase8aCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getListTableSql(String databaseName) {
-        return "SHOW TABLES;";
+        return "SHOW TABLES";
     }
 
     @Override
     protected String getSelectColumnsSql(TablePath tablePath) {
         return String.format(
-                SELECT_COLUMNS_SQL, tablePath.getDatabaseName(), tablePath.getTableName());
+                SELECT_COLUMNS_SQL, tablePath.getSchemaName(), tablePath.getTableName());
     }
 
     @Override
@@ -160,19 +158,20 @@ public class Gbase8aCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
+    protected String getOptionTableName(TablePath tablePath) {
+        return tablePath.getSchemaAndTableName();
+    }
+
+    @Override
     public List<String> listTables(String databaseName)
             throws CatalogException, DatabaseNotExistException {
         if (!databaseExists(databaseName)) {
             throw new DatabaseNotExistException(this.catalogName, databaseName);
         }
 
-        try (PreparedStatement ps = getConnection(defaultUrl).prepareStatement("SHOW TABLES");
-                ResultSet rs = ps.executeQuery()) {
-            List<String> tables = new ArrayList<>();
-            while (rs.next()) {
-                tables.add(rs.getString(1));
-            }
-            return tables;
+        String dbUrl = getUrlFromDatabaseName(databaseName);
+        try {
+            return queryString(dbUrl, getListTableSql(databaseName), this::getTableName);
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed listing table in catalog %s", catalogName), e);

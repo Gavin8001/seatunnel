@@ -22,12 +22,9 @@ import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
-import lombok.extern.slf4j.Slf4j;
-
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
-@Slf4j
 public class Gbase8aTypeMapper implements JdbcDialectTypeMapper {
 
     private final Gbase8aTypeConverter typeConverter;
