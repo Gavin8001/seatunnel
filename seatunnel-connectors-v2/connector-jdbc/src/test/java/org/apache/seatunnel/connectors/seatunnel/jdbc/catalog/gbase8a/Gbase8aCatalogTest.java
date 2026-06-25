@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.gbase8a;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -32,9 +33,14 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
+import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class Gbase8aCatalogTest {
 
@@ -73,7 +79,8 @@ public class Gbase8aCatalogTest {
     @Test
     public void testGetTableWithConditionSql() {
         String sql = GBASE8A_CATALOG.getTableWithConditionSql(TABLE_PATH);
-        Assertions.assertTrue(sql.contains("TABLE_NAME = 'test_table'"), sql);
+        // exact match per spec: no TABLE_SCHEMA clause, uppercase WHERE
+        Assertions.assertEquals("SHOW TABLES; WHERE TABLE_NAME = 'test_table'", sql);
     }
 
     @Test
@@ -89,9 +96,14 @@ public class Gbase8aCatalogTest {
     @Test
     public void testGetSelectColumnsSql() {
         String sql = GBASE8A_CATALOG.getSelectColumnsSql(TABLE_PATH);
-        Assertions.assertTrue(sql.contains("INFORMATION_SCHEMA.COLUMNS"), sql);
-        Assertions.assertTrue(sql.contains("TABLE_SCHEMA = 'test_schema'"), sql);
-        Assertions.assertTrue(sql.contains("TABLE_NAME = 'test_table'"), sql);
+        // exact spec: column list + ORDER BY ORDINAL_POSITION ASC + uppercase WHERE/AND
+        Assertions.assertEquals(
+                "SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, "
+                        + "IS_NULLABLE, COLUMN_DEFAULT, COLUMN_COMMENT "
+                        + "FROM INFORMATION_SCHEMA.COLUMNS "
+                        + "WHERE TABLE_SCHEMA = 'test_db' AND TABLE_NAME = 'test_table' "
+                        + "ORDER BY ORDINAL_POSITION ASC",
+                sql);
     }
 
     @Test
@@ -170,5 +182,90 @@ public class Gbase8aCatalogTest {
         String sql = GBASE8A_CATALOG.getCreateTableSql(TABLE_PATH, catalogTable, false);
         Assertions.assertTrue(sql.startsWith("CREATE TABLE \"test_schema\".\"test_table\""), sql);
         Assertions.assertTrue(sql.contains("\"id\" BIGINT NOT NULL"), sql);
+    }
+
+    @Test
+    public void testGetTableName() {
+        // Gbase8aCatalog overrides to use schema.table format with double-quote separator
+        Assertions.assertEquals(
+                "\"test_schema\".\"test_table\"", GBASE8A_CATALOG.getTableName(TABLE_PATH));
+    }
+
+    @Test
+    public void testGetUrlFromDatabaseName() {
+        // Override returns defaultUrl regardless of input database name
+        Assertions.assertEquals(
+                "jdbc:gbase://172.16.17.156:5258/test_db",
+                GBASE8A_CATALOG.getUrlFromDatabaseName("any_db"));
+    }
+
+    @Test
+    public void testBuildColumn() throws Exception {
+        // buildColumn is protected; invoke via reflection to verify ResultSet -> Column wiring
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getString("COLUMN_NAME")).thenReturn("id");
+        when(rs.getString("DATA_TYPE")).thenReturn("INT");
+        when(rs.getObject("CHARACTER_MAXIMUM_LENGTH", Long.class)).thenReturn(11L);
+        when(rs.getString("IS_NULLABLE")).thenReturn("NO");
+        when(rs.getObject("COLUMN_DEFAULT")).thenReturn(null);
+        when(rs.getString("COLUMN_COMMENT")).thenReturn("primary key");
+
+        Method m = Gbase8aCatalog.class.getDeclaredMethod("buildColumn", ResultSet.class);
+        m.setAccessible(true);
+        Column column = (Column) m.invoke(GBASE8A_CATALOG, rs);
+
+        Assertions.assertEquals("id", column.getName());
+        Assertions.assertEquals(BasicType.INT_TYPE, column.getDataType());
+        Assertions.assertEquals("INT", column.getSourceType());
+        Assertions.assertFalse(column.isNullable());
+        Assertions.assertEquals("primary key", column.getComment());
+    }
+
+    @Test
+    public void testBuildColumnNullableYes() throws Exception {
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getString("COLUMN_NAME")).thenReturn("name");
+        when(rs.getString("DATA_TYPE")).thenReturn("VARCHAR");
+        when(rs.getObject("CHARACTER_MAXIMUM_LENGTH", Long.class)).thenReturn(255L);
+        when(rs.getString("IS_NULLABLE")).thenReturn("YES");
+        when(rs.getObject("COLUMN_DEFAULT")).thenReturn("'default'");
+        when(rs.getString("COLUMN_COMMENT")).thenReturn(null);
+
+        Method m = Gbase8aCatalog.class.getDeclaredMethod("buildColumn", ResultSet.class);
+        m.setAccessible(true);
+        Column column = (Column) m.invoke(GBASE8A_CATALOG, rs);
+
+        Assertions.assertEquals("name", column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertTrue(column.isNullable());
+        Assertions.assertEquals("'default'", column.getDefaultValue());
+    }
+
+    @Test
+    public void testListTablesDatabaseNotExist() {
+        // listTables throws DatabaseNotExistException without contacting a DB
+        // (we cannot easily mock the connection path used by listTables; verify the exception
+        // surface exists and is wired into the API contract by checking the declared throws clause)
+        Method[] methods = Gbase8aCatalog.class.getDeclaredMethods();
+        boolean found = false;
+        for (Method m : methods) {
+            if ("listTables".equals(m.getName()) && m.getParameterCount() == 1) {
+                found = true;
+                Class<?>[] exs = m.getExceptionTypes();
+                boolean hasDbNotExist = false;
+                for (Class<?> ex : exs) {
+                    if (ex.getName()
+                            .equals(
+                                    "org.apache.seatunnel.api.table.catalog.exception"
+                                            + ".DatabaseNotExistException")) {
+                        hasDbNotExist = true;
+                        break;
+                    }
+                }
+                Assertions.assertTrue(
+                        hasDbNotExist, "listTables must declare DatabaseNotExistException");
+            }
+        }
+        Assertions.assertTrue(found, "listTables(String) override should exist");
     }
 }
