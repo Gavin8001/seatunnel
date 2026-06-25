@@ -69,3 +69,4 @@ deploy/docker/*
 
 sdd/*
 
+.worktrees/

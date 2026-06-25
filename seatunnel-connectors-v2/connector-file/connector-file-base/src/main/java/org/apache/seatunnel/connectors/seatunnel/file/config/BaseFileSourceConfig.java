@@ -96,6 +96,7 @@ public abstract class BaseFileSourceConfig implements Serializable {
             case JSON:
             case EXCEL:
             case XML:
+            case DBF:
                 readStrategy.setCatalogTable(catalogTable);
                 return newCatalogTable(catalogTable, readStrategy.getActualSeaTunnelRowTypeInfo());
             case ORC:
