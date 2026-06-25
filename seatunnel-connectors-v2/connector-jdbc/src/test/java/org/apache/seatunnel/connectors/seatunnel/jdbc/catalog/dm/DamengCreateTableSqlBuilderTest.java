@@ -111,6 +111,7 @@ public class DamengCreateTableSqlBuilderTest {
                         + "CONSTRAINT id_63d5 PRIMARY KEY (\"id\"),\n"
                         + "\tCONSTRAINT name_49b6 UNIQUE (\"name\")\n"
                         + ");\n"
+                        + "COMMENT ON TABLE \"test_schema\".\"test_table\" IS 'User table';\n"
                         + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"id\" IS 'id';\n"
                         + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"name\" IS 'name';\n"
                         + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"age\" IS 'age';\n"
@@ -120,7 +121,9 @@ public class DamengCreateTableSqlBuilderTest {
         String regex1 = "id_\\w+";
         String regex2 = "name_\\w+";
         String replacedStr1 = createTableSql.replaceAll(regex1, "id_").replaceAll(regex2, "name_");
+        System.out.println(replacedStr1);
         String replacedStr2 = expect.replaceAll(regex1, "id_").replaceAll(regex2, "name_");
+        System.out.println(replacedStr2);
         Assertions.assertEquals(replacedStr2, replacedStr1);
 
         // skip index
@@ -137,6 +140,7 @@ public class DamengCreateTableSqlBuilderTest {
                         + "\"createTime\" TIMESTAMP,\n"
                         + "\"lastUpdateTime\" TIMESTAMP\n"
                         + ");\n"
+                        + "COMMENT ON TABLE \"test_schema\".\"test_table\" IS 'User table';\n"
                         + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"id\" IS 'id';\n"
                         + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"name\" IS 'name';\n"
                         + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"age\" IS 'age';\n"
