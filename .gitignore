@@ -70,3 +70,5 @@ deploy/docker/*
 sdd/*
 
 .worktrees/
+
+deploy/patch_*
