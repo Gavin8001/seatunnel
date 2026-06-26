@@ -281,25 +281,5 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream> 
                     }
                 });
         beingWrittenDbfWriter.clear();
-
-        beingWrittenOutputStream.forEach(
-                (key, value) -> {
-                    try {
-                        value.flush();
-                    } catch (IOException e) {
-                        throw new FileConnectorException(
-                                FileConnectorErrorCode.FILE_LIST_GET_FAILED,
-                                String.format("Flush data to this file [%s] failed", key),
-                                e);
-                    } finally {
-                        try {
-                            value.close();
-                        } catch (IOException e) {
-                            log.error("error when close output stream {}", key, e);
-                        }
-                    }
-                    needMoveFiles.put(key, getTargetLocation(key));
-                });
-        beingWrittenOutputStream.clear();
     }
 }
