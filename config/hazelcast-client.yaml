@@ -25,3 +25,4 @@ hazelcast-client:
   network:
     cluster-members:
       - localhost:5801
+  smart-routing: ${SEATUNNEL_SMART_ROUTING:-true}
