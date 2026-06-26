@@ -59,10 +59,10 @@ public class Gbase8aCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuil
         List<String> sqls = new ArrayList<>();
 
         StringBuilder createTableSql = new StringBuilder();
-        createTableSql
-                .append("CREATE TABLE ")
-                .append(tablePath.getSchemaAndTableName("\""))
-                .append(" (\n");
+        String tableName = tablePath.getSchemaAndTableName("");
+
+        //creat table
+        createTableSql.append("CREATE TABLE ").append(tableName).append(" (\n");
 
         List<String> columnSqls =
                 columns.stream()
@@ -75,6 +75,12 @@ public class Gbase8aCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuil
             columnSqls.add(buildPrimaryKeySql(primaryKey));
         }
 
+        createTableSql.append(String.join(",\n", columnSqls));
+        createTableSql.append("\n)");
+
+        sqls.add(createTableSql.toString());
+
+        //table index
         if (createIndex && CollectionUtils.isNotEmpty(constraintKeys)) {
             for (ConstraintKey constraintKey : constraintKeys) {
                 if (StringUtils.isBlank(constraintKey.getConstraintName())
@@ -86,35 +92,23 @@ public class Gbase8aCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuil
                                                 primaryKey, constraintKey)))) {
                     continue;
                 }
-                String constraintKeySql = buildConstraintKeySql(constraintKey);
+                String constraintKeySql = buildConstraintKeySql(tableName, constraintKey);
                 if (StringUtils.isNotEmpty(constraintKeySql)) {
-                    columnSqls.add("\t" + constraintKeySql);
+                    sqls.add(constraintKeySql);
                 }
             }
         }
 
-        createTableSql.append(String.join(",\n", columnSqls));
-        createTableSql.append("\n)");
-        sqls.add(createTableSql.toString());
-
         // Table comment
         if (StringUtils.isNotBlank(tableComment)) {
-            sqls.add(
-                    "COMMENT ON TABLE "
-                            + tablePath.getSchemaAndTableName("\"")
-                            + " IS '"
-                            + tableComment
-                            + "'");
+            sqls.add("COMMENT ON TABLE " + tableName + " IS '" + tableComment + "'");
         }
 
         // Column comments
         List<String> commentSqls =
                 columns.stream()
                         .filter(column -> StringUtils.isNotBlank(column.getComment()))
-                        .map(
-                                column ->
-                                        buildColumnCommentSql(
-                                                column, tablePath.getSchemaAndTableName("\"")))
+                        .map(column -> buildColumnCommentSql(column, tableName))
                         .collect(Collectors.toList());
         sqls.addAll(commentSqls);
 
@@ -123,7 +117,7 @@ public class Gbase8aCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuil
 
     String buildColumnSql(Column column) {
         StringBuilder columnSql = new StringBuilder();
-        columnSql.append("\"").append(column.getName()).append("\" ");
+        columnSql.append(column.getName()).append(" ");
 
         String columnType;
         if (column.getSinkType() != null) {
@@ -146,9 +140,7 @@ public class Gbase8aCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuil
     private String buildPrimaryKeySql(PrimaryKey primaryKey) {
         String randomSuffix = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
         String columnNamesString =
-                primaryKey.getColumnNames().stream()
-                        .map(columnName -> "\"" + columnName + "\"")
-                        .collect(Collectors.joining(", "));
+                primaryKey.getColumnNames().stream().collect(Collectors.joining(", "));
         return "CONSTRAINT "
                 + primaryKey.getPrimaryKey()
                 + "_"
@@ -161,14 +153,14 @@ public class Gbase8aCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuil
     private String buildColumnCommentSql(Column column, String tableName) {
         return "COMMENT ON COLUMN "
                 + tableName
-                + ".\""
+                + "."
                 + column.getName()
-                + "\" IS '"
+                + " IS '"
                 + column.getComment()
                 + "'";
     }
 
-    private String buildConstraintKeySql(ConstraintKey constraintKey) {
+    private String buildConstraintKeySql(String tableName, ConstraintKey constraintKey) {
         ConstraintKey.ConstraintType constraintType = constraintKey.getConstraintType();
         String randomSuffix = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
         String constraintName = constraintKey.getConstraintName();
@@ -177,17 +169,13 @@ public class Gbase8aCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuil
         }
         String indexColumns =
                 constraintKey.getColumnNames().stream()
-                        .map(c -> String.format("\"%s\"", c.getColumnName()))
+                        .map(c -> c.getColumnName())
                         .collect(Collectors.joining(", "));
 
-        if (constraintType == ConstraintKey.ConstraintType.UNIQUE_KEY) {
-            return "CONSTRAINT "
-                    + constraintName
-                    + "_"
-                    + randomSuffix
-                    + " UNIQUE ("
-                    + indexColumns
-                    + ")";
+        if (constraintType == ConstraintKey.ConstraintType.INDEX_KEY) {
+            return String.format(
+                    "CREATE INDEX %s ON %s (%s) USING HASH GLOBAL",
+                    constraintName + "_" + randomSuffix, tableName, indexColumns);
         }
         return null;
     }

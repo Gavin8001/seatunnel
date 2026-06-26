@@ -116,6 +116,7 @@ public class MysqlCreateTableSqlBuilderTest {
                 MysqlCreateTableSqlBuilder.builder(
                                 tablePath, catalogTable, MySqlTypeConverter.DEFAULT_INSTANCE, true)
                         .build(DatabaseIdentifier.MYSQL);
+        System.out.println(createTableSql);
         // create table sql is change; The old unit tests are no longer applicable
         String expect =
                 "CREATE TABLE `test_table` (\n"
