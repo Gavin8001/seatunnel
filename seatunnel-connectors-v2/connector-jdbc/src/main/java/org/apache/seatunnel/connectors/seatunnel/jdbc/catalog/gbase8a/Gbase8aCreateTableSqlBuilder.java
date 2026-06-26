@@ -60,6 +60,8 @@ public class Gbase8aCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuil
 
         StringBuilder createTableSql = new StringBuilder();
         String tableName = tablePath.getSchemaAndTableName("");
+
+        //creat table
         createTableSql.append("CREATE TABLE ").append(tableName).append(" (\n");
 
         List<String> columnSqls =
@@ -74,8 +76,11 @@ public class Gbase8aCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuil
         }
 
         createTableSql.append(String.join(",\n", columnSqls));
-        createTableSql.append("\n);");
+        createTableSql.append("\n)");
 
+        sqls.add(createTableSql.toString());
+
+        //table index
         if (createIndex && CollectionUtils.isNotEmpty(constraintKeys)) {
             for (ConstraintKey constraintKey : constraintKeys) {
                 if (StringUtils.isBlank(constraintKey.getConstraintName())
@@ -89,12 +94,10 @@ public class Gbase8aCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuil
                 }
                 String constraintKeySql = buildConstraintKeySql(tableName, constraintKey);
                 if (StringUtils.isNotEmpty(constraintKeySql)) {
-                    createTableSql.append("\n" + constraintKeySql);
+                    sqls.add(constraintKeySql);
                 }
             }
         }
-
-        sqls.add(createTableSql.toString());
 
         // Table comment
         if (StringUtils.isNotBlank(tableComment)) {
