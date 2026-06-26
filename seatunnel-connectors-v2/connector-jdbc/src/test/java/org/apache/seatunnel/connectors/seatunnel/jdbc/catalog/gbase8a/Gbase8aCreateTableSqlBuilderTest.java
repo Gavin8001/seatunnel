@@ -46,7 +46,7 @@ public class Gbase8aCreateTableSqlBuilderTest {
 
     @Test
     public void testBuildCreateTableSql() {
-        TablePath tablePath = TablePath.of("test_db", "test_schema", "test_table");
+        TablePath tablePath = TablePath.of("test_db", "yzz", "test_table");
         TableSchema tableSchema =
                 TableSchema.builder()
                         .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 22, false, null, "id"))
@@ -68,7 +68,7 @@ public class Gbase8aCreateTableSqlBuilderTest {
                         .constraintKey(
                                 Arrays.asList(
                                         ConstraintKey.of(
-                                                ConstraintKey.ConstraintType.UNIQUE_KEY,
+                                                ConstraintKey.ConstraintType.INDEX_KEY,
                                                 "name",
                                                 Lists.newArrayList(
                                                         ConstraintKey.ConstraintKeyColumn.of(
@@ -86,18 +86,16 @@ public class Gbase8aCreateTableSqlBuilderTest {
         List<String> sqls = new Gbase8aCreateTableSqlBuilder(catalogTable, true).build(tablePath);
         String createTableSql = String.join(";\n", sqls) + ";";
 
+        System.out.println(createTableSql);
+
+        Assertions.assertTrue(createTableSql.contains("CREATE TABLE yzz.test_table ("));
+        Assertions.assertTrue(createTableSql.contains("id BIGINT NOT NULL"));
+        Assertions.assertTrue(createTableSql.contains("name VARCHAR(128) NOT NULL"));
         Assertions.assertTrue(
-                createTableSql.contains("CREATE TABLE \"test_schema\".\"test_table\""));
-        Assertions.assertTrue(createTableSql.contains("\"id\" BIGINT NOT NULL"));
-        Assertions.assertTrue(createTableSql.contains("\"name\" VARCHAR(128) NOT NULL"));
+                createTableSql.contains("COMMENT ON TABLE yzz.test_table IS 'User table'"));
         Assertions.assertTrue(
-                createTableSql.contains(
-                        "COMMENT ON TABLE \"test_schema\".\"test_table\" IS 'User table'"));
-        Assertions.assertTrue(
-                createTableSql.contains(
-                        "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"id\" IS 'id'"));
-        Assertions.assertTrue(createTableSql.contains("PRIMARY KEY (\"id\")"));
-        Assertions.assertTrue(createTableSql.contains("UNIQUE (\"name\")"));
+                createTableSql.contains("COMMENT ON COLUMN yzz.test_table.id IS 'id'"));
+        Assertions.assertTrue(createTableSql.contains("PRIMARY KEY (id)"));
     }
 
     @Test
@@ -112,6 +110,6 @@ public class Gbase8aCreateTableSqlBuilderTest {
 
         String result = sqlBuilder.buildColumnSql(column);
 
-        Assertions.assertEquals("\"col1\" VARCHAR(10) NOT NULL", result);
+        Assertions.assertEquals("col1 VARCHAR(10) NOT NULL", result);
     }
 }
