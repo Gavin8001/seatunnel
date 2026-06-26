@@ -36,12 +36,14 @@ import java.util.List;
 @Slf4j
 public class Gbase8aCatalog extends AbstractJdbcCatalog {
 
-    private static final String SELECT_COLUMNS_SQL =
-            "SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, "
-                    + "IS_NULLABLE, COLUMN_DEFAULT, COLUMN_COMMENT "
-                    + "FROM INFORMATION_SCHEMA.COLUMNS "
-                    + "WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' "
-                    + "ORDER BY ORDINAL_POSITION ASC";
+    private static final String SELECT_COLUMNS_SQL_TEMPLATE =
+            "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME ='%s' ORDER BY ORDINAL_POSITION ASC";
+
+    private static final String SELECT_DATABASE_EXISTS =
+            "SELECT SCHEMA_NAME FROM information_schema.schemata WHERE SCHEMA_NAME = '%s'";
+
+    private static final String SELECT_TABLE_EXISTS =
+            "SELECT TABLE_SCHEMA,TABLE_NAME FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'";
 
     public Gbase8aCatalog(
             String catalogName,
@@ -72,15 +74,13 @@ public class Gbase8aCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getDatabaseWithConditionSql(String databaseName) {
-        return String.format(getListDatabaseSql() + " where name = '%s'", databaseName);
+        return String.format(SELECT_DATABASE_EXISTS, databaseName);
     }
 
     @Override
     protected String getTableWithConditionSql(TablePath tablePath) {
-        return getListTableSql(tablePath.getDatabaseName())
-                + " WHERE TABLE_NAME = '"
-                + tablePath.getTableName()
-                + "'";
+        return String.format(
+                SELECT_TABLE_EXISTS, tablePath.getDatabaseName(), tablePath.getTableName());
     }
 
     @Override
@@ -96,7 +96,7 @@ public class Gbase8aCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getSelectColumnsSql(TablePath tablePath) {
         return String.format(
-                SELECT_COLUMNS_SQL, tablePath.getSchemaName(), tablePath.getTableName());
+                SELECT_COLUMNS_SQL_TEMPLATE, tablePath.getSchemaName(), tablePath.getTableName());
     }
 
     @Override
