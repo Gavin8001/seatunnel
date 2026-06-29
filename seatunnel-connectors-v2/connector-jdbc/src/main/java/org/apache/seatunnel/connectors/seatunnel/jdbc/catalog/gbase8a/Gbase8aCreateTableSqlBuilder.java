@@ -61,7 +61,7 @@ public class Gbase8aCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuil
         StringBuilder createTableSql = new StringBuilder();
         String tableName = tablePath.getSchemaAndTableName("");
 
-        //creat table
+        // creat table
         createTableSql.append("CREATE TABLE ").append(tableName).append(" (\n");
 
         List<String> columnSqls =
@@ -80,7 +80,7 @@ public class Gbase8aCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuil
 
         sqls.add(createTableSql.toString());
 
-        //table index
+        // table index
         if (createIndex && CollectionUtils.isNotEmpty(constraintKeys)) {
             for (ConstraintKey constraintKey : constraintKeys) {
                 if (StringUtils.isBlank(constraintKey.getConstraintName())
@@ -141,11 +141,7 @@ public class Gbase8aCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuil
         String randomSuffix = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
         String columnNamesString =
                 primaryKey.getColumnNames().stream().collect(Collectors.joining(", "));
-        return "CONSTRAINT "
-                + primaryKey.getPrimaryKey()
-                + "_"
-                + randomSuffix
-                + " PRIMARY KEY ("
+        return  " PRIMARY KEY ("
                 + columnNamesString
                 + ")";
     }
