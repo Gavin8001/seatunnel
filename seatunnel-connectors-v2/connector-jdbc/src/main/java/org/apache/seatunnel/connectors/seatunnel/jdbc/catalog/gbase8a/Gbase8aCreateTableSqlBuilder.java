@@ -141,9 +141,7 @@ public class Gbase8aCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuil
         String randomSuffix = UUID.randomUUID().toString().replace("-", "").substring(0, 4);
         String columnNamesString =
                 primaryKey.getColumnNames().stream().collect(Collectors.joining(", "));
-        return  " PRIMARY KEY ("
-                + columnNamesString
-                + ")";
+        return " PRIMARY KEY (" + columnNamesString + ")";
     }
 
     private String buildColumnCommentSql(Column column, String tableName) {
