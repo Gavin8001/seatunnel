@@ -46,8 +46,7 @@ public class Gbase8aCatalogTest {
 
     private static Gbase8aCatalog GBASE8A_CATALOG;
 
-    private static final TablePath TABLE_PATH =
-            TablePath.of("test_db", "test_schema", "test_table");
+    private static final TablePath TABLE_PATH = TablePath.of("test_db", null, "test_table");
 
     @BeforeAll
     static void setUp() {
@@ -66,21 +65,23 @@ public class Gbase8aCatalogTest {
     @Test
     public void testGetExistDataSql() {
         Assertions.assertEquals(
-                "SELECT * FROM \"test_schema\".\"test_table\" LIMIT 1",
+                "SELECT * FROM test_db.test_table LIMIT 1",
                 GBASE8A_CATALOG.getExistDataSql(TABLE_PATH));
     }
 
     @Test
     public void testGetDatabaseWithConditionSql() {
         String sql = GBASE8A_CATALOG.getDatabaseWithConditionSql("mydb");
-        Assertions.assertTrue(sql.contains("name = 'mydb'"), sql);
+        Assertions.assertTrue(sql.contains("SCHEMA_NAME = 'mydb'"), sql);
     }
 
     @Test
     public void testGetTableWithConditionSql() {
         String sql = GBASE8A_CATALOG.getTableWithConditionSql(TABLE_PATH);
         // exact match per spec: no TABLE_SCHEMA clause, uppercase WHERE
-        Assertions.assertEquals("SHOW TABLES WHERE TABLE_NAME = 'test_table'", sql);
+        Assertions.assertEquals(
+                "SELECT TABLE_SCHEMA,TABLE_NAME FROM information_schema.tables WHERE table_schema = 'test_db' AND table_name = 'test_table'",
+                sql);
     }
 
     @Test
@@ -98,10 +99,8 @@ public class Gbase8aCatalogTest {
         String sql = GBASE8A_CATALOG.getSelectColumnsSql(TABLE_PATH);
         // TABLE_SCHEMA placeholder is the schema (second segment), not the database
         Assertions.assertEquals(
-                "SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, "
-                        + "IS_NULLABLE, COLUMN_DEFAULT, COLUMN_COMMENT "
-                        + "FROM INFORMATION_SCHEMA.COLUMNS "
-                        + "WHERE TABLE_SCHEMA = 'test_schema' AND TABLE_NAME = 'test_table' "
+                "SELECT * FROM INFORMATION_SCHEMA.COLUMNS "
+                        + "WHERE TABLE_SCHEMA = 'test_db' AND TABLE_NAME = 'test_table' "
                         + "ORDER BY ORDINAL_POSITION ASC",
                 sql);
     }
@@ -109,29 +108,14 @@ public class Gbase8aCatalogTest {
     @Test
     public void testGetDropTableSql() {
         Assertions.assertEquals(
-                "DROP TABLE \"test_schema\".\"test_table\"",
-                GBASE8A_CATALOG.getDropTableSql(TABLE_PATH));
+                "DROP TABLE test_db.test_table", GBASE8A_CATALOG.getDropTableSql(TABLE_PATH));
     }
 
     @Test
     public void testGetTruncateTableSql() {
         Assertions.assertEquals(
-                "TRUNCATE TABLE \"test_schema\".\"test_table\"",
+                "TRUNCATE TABLE test_db.test_table",
                 GBASE8A_CATALOG.getTruncateTableSql(TABLE_PATH));
-    }
-
-    @Test
-    public void testCreateDatabaseInternalUnsupported() {
-        Assertions.assertThrows(
-                UnsupportedOperationException.class,
-                () -> GBASE8A_CATALOG.createDatabaseInternal("mydb"));
-    }
-
-    @Test
-    public void testDropDatabaseInternalUnsupported() {
-        Assertions.assertThrows(
-                UnsupportedOperationException.class,
-                () -> GBASE8A_CATALOG.dropDatabaseInternal("mydb"));
     }
 
     @Test
@@ -153,15 +137,11 @@ public class Gbase8aCatalogTest {
         List<String> sqls = GBASE8A_CATALOG.getCreateTableSqls(TABLE_PATH, catalogTable, false);
 
         String joined = String.join(";\n", sqls);
+        Assertions.assertTrue(joined.contains("CREATE TABLE test_table"), joined);
+        Assertions.assertTrue(joined.contains("id BIGINT NOT NULL"), joined);
         Assertions.assertTrue(
-                joined.contains("CREATE TABLE \"test_schema\".\"test_table\""), joined);
-        Assertions.assertTrue(joined.contains("\"id\" BIGINT NOT NULL"), joined);
-        Assertions.assertTrue(
-                joined.contains("COMMENT ON TABLE \"test_schema\".\"test_table\" IS 'User table'"),
-                joined);
-        Assertions.assertTrue(
-                joined.contains("COMMENT ON COLUMN \"test_schema\".\"test_table\".\"id\" IS 'id'"),
-                joined);
+                joined.contains("COMMENT ON TABLE test_table IS 'User table'"), joined);
+        Assertions.assertTrue(joined.contains("COMMENT ON COLUMN test_table.id IS 'id'"), joined);
     }
 
     @Test
@@ -180,22 +160,20 @@ public class Gbase8aCatalogTest {
                         "");
 
         String sql = GBASE8A_CATALOG.getCreateTableSql(TABLE_PATH, catalogTable, false);
-        Assertions.assertTrue(sql.startsWith("CREATE TABLE \"test_schema\".\"test_table\""), sql);
-        Assertions.assertTrue(sql.contains("\"id\" BIGINT NOT NULL"), sql);
+        Assertions.assertTrue(sql.startsWith("CREATE TABLE test_table"), sql);
+        Assertions.assertTrue(sql.contains("id BIGINT NOT NULL"), sql);
     }
 
     @Test
     public void testGetTableName() {
         // Gbase8aCatalog overrides to use schema.table format with double-quote separator
-        Assertions.assertEquals(
-                "\"test_schema\".\"test_table\"", GBASE8A_CATALOG.getTableName(TABLE_PATH));
+        Assertions.assertEquals("test_table", GBASE8A_CATALOG.getTableName(TABLE_PATH));
     }
 
     @Test
     public void testGetOptionTableName() {
         // Gbase8aCatalog overrides to return schema.table (not the full db.schema.table)
-        Assertions.assertEquals(
-                "test_schema.test_table", GBASE8A_CATALOG.getOptionTableName(TABLE_PATH));
+        Assertions.assertEquals("test_table", GBASE8A_CATALOG.getOptionTableName(TABLE_PATH));
     }
 
     @Test

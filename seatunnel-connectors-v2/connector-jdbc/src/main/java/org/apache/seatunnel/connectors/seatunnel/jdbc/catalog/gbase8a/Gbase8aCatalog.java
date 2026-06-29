@@ -37,7 +37,7 @@ import java.util.List;
 public class Gbase8aCatalog extends AbstractJdbcCatalog {
 
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
-            "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME ='%s' ORDER BY ORDINAL_POSITION ASC";
+            "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' ORDER BY ORDINAL_POSITION ASC";
 
     private static final String SELECT_DATABASE_EXISTS =
             "SELECT SCHEMA_NAME FROM information_schema.schemata WHERE SCHEMA_NAME = '%s'";
@@ -56,20 +56,20 @@ public class Gbase8aCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected void createDatabaseInternal(String databaseName) {
-        throw new UnsupportedOperationException("GBase 8A does not support creating databases");
+    protected String getCreateDatabaseSql(String databaseName) {
+        return String.format("CREATE DATABASE %s", databaseName);
     }
 
     @Override
-    protected void dropDatabaseInternal(String databaseName) {
-        throw new UnsupportedOperationException("GBase 8A does not support dropping databases");
+    protected String getDropDatabaseSql(String databaseName) {
+        return String.format("DROP DATABASE %s", databaseName);
     }
 
     @Override
     protected String getExistDataSql(TablePath tablePath) {
         return String.format(
-                "SELECT * FROM \"%s\".\"%s\" LIMIT 1",
-                tablePath.getSchemaName(), tablePath.getTableName());
+                "SELECT * FROM %s.%s LIMIT 1",
+                tablePath.getDatabaseName(), tablePath.getTableName());
     }
 
     @Override
@@ -96,7 +96,7 @@ public class Gbase8aCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getSelectColumnsSql(TablePath tablePath) {
         return String.format(
-                SELECT_COLUMNS_SQL_TEMPLATE, tablePath.getSchemaName(), tablePath.getTableName());
+                SELECT_COLUMNS_SQL_TEMPLATE, tablePath.getDatabaseName(), tablePath.getTableName());
     }
 
     @Override
@@ -125,14 +125,13 @@ public class Gbase8aCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getDropTableSql(TablePath tablePath) {
         return String.format(
-                "DROP TABLE \"%s\".\"%s\"", tablePath.getSchemaName(), tablePath.getTableName());
+                "DROP TABLE %s.%s", tablePath.getDatabaseName(), tablePath.getTableName());
     }
 
     @Override
     protected String getTruncateTableSql(TablePath tablePath) {
         return String.format(
-                "TRUNCATE TABLE \"%s\".\"%s\"",
-                tablePath.getSchemaName(), tablePath.getTableName());
+                "TRUNCATE TABLE %s.%s", tablePath.getDatabaseName(), tablePath.getTableName());
     }
 
     @Override
@@ -154,7 +153,7 @@ public class Gbase8aCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getTableName(TablePath tablePath) {
-        return tablePath.getSchemaAndTableName("\"");
+        return tablePath.getSchemaAndTableName("");
     }
 
     @Override
