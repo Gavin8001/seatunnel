@@ -41,6 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -210,7 +211,7 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream> 
                     dbffield.setFieldLength(getDbfFieldLength(fieldTypes[i]));
                     fields[i] = dbffield;
                 }
-                DBFWriter dbfWriter = new DBFWriter(fsDataOutputStream);
+                DBFWriter dbfWriter = new DBFWriter(fsDataOutputStream, Charset.forName(encoding));
                 dbfWriter.setFields(fields);
                 beingWrittenDbfWriter.put(filePath, dbfWriter);
             } catch (IOException e) {
