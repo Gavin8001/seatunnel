@@ -270,15 +270,17 @@ public class DbfWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream> 
                                 FileConnectorErrorCode.FILE_LIST_GET_FAILED,
                                 "Failed to write DBF file",
                                 e);
+                    } finally {
+                        try {
+                            value.close();
+                        } catch (Exception e) {
+                            throw new FileConnectorException(
+                                    FileConnectorErrorCode.FILE_LIST_GET_FAILED,
+                                    "Failed to close DBF writer",
+                                    e);
+                        }
                     }
-                    try {
-                        value.close();
-                    } catch (Exception e) {
-                        throw new FileConnectorException(
-                                FileConnectorErrorCode.FILE_LIST_GET_FAILED,
-                                "Failed to close DBF writer",
-                                e);
-                    }
+                    needMoveFiles.put(key, getTargetLocation(key));
                 });
         beingWrittenDbfWriter.clear();
     }
